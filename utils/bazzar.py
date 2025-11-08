@@ -235,6 +235,23 @@ class HypixelBazaarTracker:
             ''', (product_id_with_spaces,))
             result = cursor.fetchone()
         
+        # Final fallback: partial match (LIKE search) - use the best match (shortest name = most specific)
+        if not result:
+            search_term = product_id.replace('_', ' ')
+            cursor.execute('''
+                SELECT product_id, sell_price, buy_price, sell_volume, buy_volume,
+                       sell_orders, buy_orders, sell_moving_week, buy_moving_week,
+                       LENGTH(product_id) as name_length
+                FROM bazaar_current
+                WHERE LOWER(product_id) LIKE LOWER(?)
+                ORDER BY name_length ASC
+                LIMIT 1
+            ''', (f'%{search_term}%',))
+            result = cursor.fetchone()
+            if result:
+                # Remove the name_length field before returning
+                result = result[:9]
+        
         conn.close()
         
         if result:

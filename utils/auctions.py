@@ -350,6 +350,22 @@ class HypixelAuctionTracker:
             ''', (item_name_with_spaces,))
             result = cursor.fetchone()
         
+        # Final fallback: partial match (LIKE search) - use the best match (shortest name = most specific)
+        if not result:
+            search_term = item_name.replace('_', ' ')
+            cursor.execute('''
+                SELECT uuid, item_name, starting_bid, tier, auctioneer,
+                       LENGTH(item_name) as name_length
+                FROM auctions
+                WHERE LOWER(item_name) LIKE LOWER(?) AND bin = 1 AND claimed = 0
+                ORDER BY name_length ASC, starting_bid ASC
+                LIMIT 1
+            ''', (f'%{search_term}%',))
+            result = cursor.fetchone()
+            if result:
+                # Remove the name_length field before returning
+                result = result[:5]
+        
         conn.close()
         
         if result:
